@@ -38,6 +38,10 @@ modprobe 9p
 mkdir -p /sysroot
 mount -t 9p -o trans=virtio,version=9p2000.u,cache=fscache,access=any,rw root /sysroot
 
+# Ensure necessary mount points are present
+mkdir -p /sysroot/dev
+mkdir -p /sysroot/proc
+
 # Mount our init context.
 # We stash the init binary inside file descriptor 3.
 # This allows us to cleanly unmount everything here,
