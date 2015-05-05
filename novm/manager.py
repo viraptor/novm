@@ -542,7 +542,7 @@ class NovmManager(object):
                 shutil.copytree(
                     modules,
                     os.path.join(temp_dir, "modules"),
-                    ignore=shutil.ignore_patterns("source", "build"))
+                    ignore=shutil.ignore_patterns("source", "build", "extramodules"))
 
             open(os.path.join(temp_dir, "release"), "w").write(release)
             utils.packdir(temp_dir, output)
