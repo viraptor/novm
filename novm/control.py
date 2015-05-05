@@ -54,7 +54,13 @@ class Control(object):
             self._sock.bind(path)
             self._sock.listen(1024)
         else:
-            self._sock.connect(path)
+            try:
+                self._sock.connect(path)
+            except OSError as e:
+                if e.errno == 2:
+                    raise Exception("Cannot connect to the instance")
+                else:
+                    raise
 
     def fd(self):
         return self._sock.fileno()
