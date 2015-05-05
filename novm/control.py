@@ -65,10 +65,16 @@ class Control(object):
     def fd(self):
         return self._sock.fileno()
 
+    def socket_file(self):
+        if sys.version_info[0] > 2:
+            return self._sock.makefile('w', buffering=1)
+        else:
+            return self._sock.makefile(bufsize=0)
+
     def rpc(self, name, **kwargs):
 
         # Open the socket.
-        fobj = self._sock.makefile(bufsize=0)
+        fobj = self.socket_file()
         if not self._sent_rpc:
             self._sent_rpc = True
             fobj.write("NOVM RPC\n")
@@ -105,7 +111,7 @@ class Control(object):
         if cwd is None:
             cwd = "/"
 
-        fobj = self._sock.makefile(bufsize=0)
+        fobj = self.socket_file()
         fobj.write("NOVM RUN\n")
 
         # Write the initial run command.
