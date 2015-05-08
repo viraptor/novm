@@ -21,15 +21,16 @@ import tempfile
 import subprocess
 import os
 import sys
-import urlparse
 import logging
 
 LOG = logging.getLogger(__name__)
 
 if sys.version_info[0] == 3:
     from http.client import HTTPSConnection
+    import urllib.parse as urlparse
 else:
     from httplib import HTTPSConnection
+    import urlparse
 
 class RegistryClient(object):
     """
