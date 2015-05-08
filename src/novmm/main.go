@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"log/syslog"
 	"novmm/control"
 	"novmm/loader"
 	"novmm/machine"
@@ -52,6 +53,7 @@ var trace = flag.Bool("trace", false, "trace kernel symbols on exit")
 var debug = flag.Bool("debug", false, "devices start debugging")
 var paused = flag.Bool("paused", false, "start with model and vcpus paused")
 var stop = flag.Bool("stop", false, "wait for a SIGCONT before running")
+var use_syslog = flag.Bool("syslog", false, "use syslog log logging")
 
 func restart(
 	model *machine.Model,
@@ -144,6 +146,15 @@ func main() {
 
 	// Parse all command line options.
 	flag.Parse()
+
+	// Setup optional syslog output
+	if *use_syslog {
+		syslogout, err := syslog.New(syslog.LOG_INFO, "novmm")
+		if err != nil {
+			utils.Die(err)
+		}
+		log.SetOutput(syslogout)
+	}
 
 	// Are we doing a special restart?
 	// This will STOP the current process, and
