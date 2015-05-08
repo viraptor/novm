@@ -67,7 +67,7 @@ class Control(object):
 
     def socket_file(self):
         if sys.version_info[0] > 2:
-            return self._sock.makefile('w', buffering=1)
+            return self._sock.makefile('rw', buffering=1)
         else:
             return self._sock.makefile(bufsize=0)
 
