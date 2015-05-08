@@ -21,6 +21,10 @@ import tempfile
 import subprocess
 import os
 import sys
+import urlparse
+import logging
+
+LOG = logging.getLogger(__name__)
 
 if sys.version_info[0] == 3:
     from http.client import HTTPSConnection
@@ -47,13 +51,23 @@ class RegistryClient(object):
         self._db = db
         self._host = host
         self._token = None
-        self._registries = [host]
+        self._registry = None
 
         if username is not None and password is not None:
             self._auth = base64.encodestring(
                 "%s:%s" % (username, password)).replace('\n', '')
         else:
             self._auth = None
+
+    def do_auth(self, repository):
+        if self._token is not None:
+            return
+
+        (token, endpoint) = self._request(
+            "v1/repositories/%s/images" % repository,
+            auth=True)
+        self._token = token
+        self._registry = endpoint
 
     def tags(self, repository):
         data = self._request("v1/repositories/%s/tags" % repository)
@@ -67,6 +81,10 @@ class RegistryClient(object):
             ])
         else:
             return data
+
+    def tag_resolve(self, repository, tag):
+        self.do_auth(repository)
+        return self._request("v1/repositories/%s/tags/%s" % (repository, tag))
 
     def tag_delete(self, repository, tag):
         self._request(
@@ -85,32 +103,20 @@ class RegistryClient(object):
         ]
 
     def image_download(self, repository, image_id, output):
-        (token, endpoint) = self._request(
-            "v1/repositories/%s/images" % repository,
-            auth=True)
+        self.do_auth(repository)
         return self._request(
             "v1/images/%s/layer" % image_id,
-            output=output,
-            token=token,
-            host=endpoint)
+            output=output)
 
     def image_ancestry(self, repository, image_id):
-        (token, endpoint) = self._request(
-            "v1/repositories/%s/images" % repository,
-            auth=True)
+        self.do_auth(repository)
         return self._request(
-            "v1/images/%s/ancestry" % image_id,
-            token=token,
-            host=endpoint)
+            "v1/images/%s/ancestry" % image_id)
 
     def image_info(self, repository, image_id):
-        (token, endpoint) = self._request(
-            "v1/repositories/%s/images" % repository,
-            auth=True)
+        self.do_auth(repository)
         return self._request(
-            "v1/images/%s/json" % image_id,
-            token=token,
-            host=endpoint)
+            "v1/images/%s/json" % image_id)
 
     def _request(self,
             url,
@@ -126,11 +132,17 @@ class RegistryClient(object):
                 method = "GET"
             else:
                 method = "PUT"
-        if host is None:
+        if host is None and auth:
             host = self._host
+
+        if token is None and not auth:
+            token = self._token
+        if host is None and not auth:
+            host = self._registry
 
         # Build our headers.
         headers = {}
+        headers["X-Docker-Registry-Version"] = "0.6.0"
         headers["Accept"] = "application/json"
         headers["Content-Type"] = "application/json"
         if token is not None:
@@ -141,9 +153,23 @@ class RegistryClient(object):
 
         # Open the requested URL.
         url = "https://%s/%s" % (host, url)
+        LOG.debug("Requesting docker url: %s", url)
         con = HTTPSConnection(host)
         con.request(method, url, body=body, headers=headers)
         resp = con.getresponse()
+
+        if int(resp.status / 100) == 3:
+            new_location = resp.getheader('location')
+            new_location = urlparse.urlsplit(new_location)
+
+            return self._request(
+                new_location.path.lstrip('/') + "?" + new_location.query,
+                method=method,
+                body=body,
+                output=output,
+                host=new_location.netloc,
+                token=token,
+                auth=auth)
 
         if int(resp.status / 100) != 2:
             # Return the given error.
@@ -228,7 +254,8 @@ class RegistryClient(object):
     def pull_repository(self, repository):
         if ":" in repository:
             (repository, tag) = repository.split(":", 1)
-            image_id = self.tags(repository).get(tag)
+            image_id = self.tag_resolve(repository, tag)
+            LOG.debug("Pulling image_id: %s", image_id)
             if not image_id:
                 raise KeyError(tag)
         else:
