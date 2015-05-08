@@ -20,7 +20,6 @@ import (
 	"noguest/protocol"
 	"noguest/rpc"
 	"os"
-	"os/exec"
 	"syscall"
 )
 
@@ -43,8 +42,7 @@ func mount(fs string, location string) error {
 	}
 
 	// Try to mount it.
-	cmd := exec.Command("/bin/mount", "-t", fs, fs, location)
-	return cmd.Run()
+	return syscall.Mount(fs, location, fs, uintptr(0), "")
 }
 
 func main() {

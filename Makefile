@@ -53,7 +53,7 @@ go-build: go-fmt go-test
 go-install: go-fmt go-test
 go-%:
 	$(call go_build,go $* novmm)
-	$(call go_build,go $* noguest)
+	$(call go_build,go $* --ldflags '-extldflags "-static"' noguest)
 go-bench:
 	$(call go_build,go test -bench=".*" novmm)
 	$(call go_build,go test -bench=".*" noguest)
